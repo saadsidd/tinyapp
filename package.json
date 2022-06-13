@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/saadsidd/tinyapp/issues"
   },
-  "homepage": "https://github.com/saadsidd/tinyapp#readme"
+  "homepage": "https://github.com/saadsidd/tinyapp#readme",
+  "dependencies": {
+    "express": "^4.18.1"
+  }
 }
