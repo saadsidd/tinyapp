@@ -1,7 +1,11 @@
 const express = require('express');
 const app = express();
+const bodyParser = require('body-parser');
 const morgan = require('morgan');
 const PORT = 8080;  // Default port
+
+// Adding body-parser to app to make POST data readable from Buffer
+app.use(bodyParser.urlencoded({extended: true}));
 
 // Adding http request logger to app
 app.use(morgan('dev'));
@@ -9,7 +13,7 @@ app.use(morgan('dev'));
 // Use EJS as Express app's templating engine
 app.set('view engine', 'ejs');
 
-// Test object for /urls.json GET
+// Test "database" for storing or retrieving shortened URLs
 const urlDatabase = {
   'b2xVn2': 'http://www.ligthouselabs.ca',
   '9sm5xK': 'http://www.google.com'
@@ -36,7 +40,19 @@ app.get('/urls', (req, res) => {
   res.render('urls_index', templateVars);
 });
 
-// Response to /url/a8tKA2G (for example) where a8tKA2G is route parameter found in req.params
+// Response to POST request from /urls/new. We get longURL as object in req.body thanks to body-parser
+app.post('/urls', (req, res) => {
+  console.log(req.body);
+  res.send('Ok');
+});
+
+// Response to /urls/new for POST requests from users of URLs to shorten
+// Place above /urls/:shortURL as route order matters
+app.get('/urls/new', (req, res) => {
+  res.render('urls_new');
+});
+
+// Response to (for example) /url/a8tKA2G where a8tKA2G is route parameter found in req.params
 app.get('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   const templateVars = { shortURL, longURL: urlDatabase[shortURL] };
@@ -47,3 +63,34 @@ app.get('/urls/:shortURL', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}`);
 });
+
+// Generates a random 6 character alphanumeric string
+const generateRandomString = function() {
+
+  const chars = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+    'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 0
+  ];
+
+  let shortURL = '';
+
+  for (let i = 0; i < 6; i++) {
+    const lowerUpperNum = Math.random();
+
+    if (lowerUpperNum < 0.3) {
+      // Get a lowercase letter
+      shortURL += chars[Math.floor(Math.random() * 26)];
+    } else if (lowerUpperNum >= 0.3 && lowerUpperNum < 0.6) {
+      // Get an uppercase letter
+      shortURL += chars[Math.floor(Math.random() * 26 + 26)];
+    } else {
+      // Get a number
+      shortURL += chars[Math.floor(Math.random() * 10 + 52)];
+    }
+  }
+
+  return shortURL;
+};
