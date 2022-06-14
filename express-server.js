@@ -1,6 +1,10 @@
 const express = require('express');
 const app = express();
+const morgan = require('morgan');
 const PORT = 8080;  // Default port
+
+// Adding http request logger to app
+app.use(morgan('dev'));
 
 // Use EJS as Express app's templating engine
 app.set('view engine', 'ejs');
@@ -24,6 +28,11 @@ app.get('/urls.json', (req, res) => {
 // Response to /hello which sends some html
 app.get('/hello', (req, res) => {
   res.send('<html><body>Hello <b>World</b></body></html>\n');
+});
+
+app.get('/urls', (req, res) => {
+  const templateVars = { urls: urlDatabase };
+  res.render('urls_index', templateVars);
 });
 
 // Start listening at port 8080
