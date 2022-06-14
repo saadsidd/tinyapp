@@ -15,7 +15,7 @@ app.set('view engine', 'ejs');
 
 // Test "database" for storing or retrieving shortened URLs
 const urlDatabase = {
-  'b2xVn2': 'http://www.ligthouselabs.ca',
+  'b2xVn2': 'http://www.lighthouselabs.ca',
   '9sm5xK': 'http://www.google.com'
 };
 
@@ -41,9 +41,12 @@ app.get('/urls', (req, res) => {
 });
 
 // Response to POST request from /urls/new. We get longURL as object in req.body thanks to body-parser
+// Saving new generated random shortURL key in urlDatabase with user's longURL value
 app.post('/urls', (req, res) => {
-  console.log(req.body);
-  res.send('Ok');
+  const shortURL = generateRandomString();
+  urlDatabase[shortURL] = req.body.longURL;
+  console.log(urlDatabase);
+  res.redirect(`/urls/${shortURL}`);
 });
 
 // Response to /urls/new for POST requests from users of URLs to shorten
@@ -57,6 +60,13 @@ app.get('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   const templateVars = { shortURL, longURL: urlDatabase[shortURL] };
   res.render('urls_show', templateVars);
+});
+
+// Redirect user back to longURL when shortURL is clicked on after generating it
+app.get("/u/:shortURL", (req, res) => {
+  const shortURL = req.params.shortURL;
+  const longURL = urlDatabase[shortURL];
+  res.redirect(longURL);
 });
 
 // Start listening at port 8080
@@ -78,12 +88,12 @@ const generateRandomString = function() {
   let shortURL = '';
 
   for (let i = 0; i < 6; i++) {
-    const lowerUpperNum = Math.random();
+    const lowerUpperOrNum = Math.random();
 
-    if (lowerUpperNum < 0.3) {
+    if (lowerUpperOrNum < 0.3) {
       // Get a lowercase letter
       shortURL += chars[Math.floor(Math.random() * 26)];
-    } else if (lowerUpperNum >= 0.3 && lowerUpperNum < 0.6) {
+    } else if (lowerUpperOrNum >= 0.3 && lowerUpperOrNum < 0.6) {
       // Get an uppercase letter
       shortURL += chars[Math.floor(Math.random() * 26 + 26)];
     } else {
