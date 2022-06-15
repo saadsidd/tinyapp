@@ -42,6 +42,14 @@ app.post('/urls/:shortURL/delete', (req, res) => {
   res.redirect('/urls');
 });
 
+// Response to POST request to update shortURL with a newly given longURL
+app.post('/urls/:shortURL', (req, res) => {
+  const shortURL = req.params.shortURL;
+  const newLongURL = req.body.longURL;
+  urlDatabase[shortURL] = newLongURL;
+  res.redirect('/urls');
+});
+
 // Response to POST request from /urls/new. We get longURL as object in req.body thanks to body-parser
 // Saving new generated random shortURL key in urlDatabase with user's longURL value
 app.post('/urls', (req, res) => {
