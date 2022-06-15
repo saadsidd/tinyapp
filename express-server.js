@@ -29,15 +29,17 @@ app.get('/urls.json', (req, res) => {
   res.json(urlDatabase);
 });
 
-// Response to /hello which sends some html
-app.get('/hello', (req, res) => {
-  res.send('<html><body>Hello <b>World</b></body></html>\n');
-});
-
 // Response to /urls which sends urlDatabase to urls_index to be rendered on page
 app.get('/urls', (req, res) => {
   const templateVars = { urls: urlDatabase };
   res.render('urls_index', templateVars);
+});
+
+// Response to user pressing Delete button for specific URL
+app.post('/urls/:shortURL/delete', (req, res) => {
+  const shortURL = req.params.shortURL;
+  delete urlDatabase[shortURL];
+  res.redirect('/urls');
 });
 
 // Response to POST request from /urls/new. We get longURL as object in req.body thanks to body-parser
@@ -45,7 +47,6 @@ app.get('/urls', (req, res) => {
 app.post('/urls', (req, res) => {
   const shortURL = generateRandomString();
   urlDatabase[shortURL] = req.body.longURL;
-  console.log(urlDatabase);
   res.redirect(`/urls/${shortURL}`);
 });
 
