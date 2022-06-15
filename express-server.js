@@ -41,6 +41,12 @@ app.post('/logout', (req, res) => {
   res.redirect('/urls');
 });
 
+// Response to user navigating to /register
+app.get('/register', (req, res) => {
+  const templateVars = { username: req.cookies['username'] };
+  res.render('register', templateVars);
+});
+
 // Response to /urls.json which sends urlDatabase object
 app.get('/urls.json', (req, res) => {
   res.json(urlDatabase);
