@@ -42,15 +42,20 @@ app.get('/', (req, res) => {
   res.redirect('/urls');
 });
 
+// Response to /login
+app.get('/login', (req, res) => {
+  const templateVars = { user: users[req.cookies['user_id']] };
+  res.render('login', templateVars);
+});
+
 // Response to user entering a username and clicking Login
 app.post('/login', (req, res) => {
-  res.cookie('username', req.body.username);
   res.redirect('/urls');
 });
 
 // Response to user clicking Logout
 app.post('/logout', (req, res) => {
-  res.clearCookie('username', req.body.username);
+  res.clearCookie('user_id');
   res.redirect('/urls');
 });
 

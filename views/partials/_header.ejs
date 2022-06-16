@@ -1,6 +1,6 @@
 <header>
-  <nav class="navbar navbar-expand-md navbar-dark bg-success">
-    <a class="navbar-brand" href="/urls">TinyApp</a>
+  <nav class="navbar navbar-expand-md navbar-light" style="background-color: #b4dfff;">
+    <a class="navbar-brand" href="/urls" style="font-weight: 500;">TinyApp</a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
@@ -8,20 +8,20 @@
       <div class="navbar-nav">
         <a class="nav-item nav-link" href="/urls">My URLs</a>
         <a class="nav-item nav-link" href="/urls/new">Create New URL</a>
-      </div>
+      </div class="navbar-nav ml-auto justify-content-end">
           <% if (user !== undefined) { %>
             <form class="form-inline" action="/logout" method="POST">
-              <div class="form-group mb-2">
+              <div class="form-group">
                 <label for="username" style="margin-right: 10px;">Logged in as: <%= user.email %></label>
-                <button type="submit" class="btn btn-outline-dark">Logout</button>
+                <button type="submit" class="btn btn-outline-danger">Logout</button>
               </div>
             </form>
           <% } else { %>
-            <form class="form-inline" action="/login" method="POST">
-              <div class="form-group mb-2">
-                <input class="form-control" type="text" name="username" placeholder="Username" style="width: 200px; margin-right: 10px;">
-                <button type="submit" class="btn btn-outline-dark">Login</button>
-              </div>
+            <form class="ml-auto" action="/register" method="GET">
+              <button class="btn btn-link" style="color: blue;">Register</button>
+            </form>
+            <form class="nav-item" action="/login" method="GET">
+              <button class="btn btn btn-success" style="padding-left: 30px; padding-right: 30px;">Login</button>
             </form>
           <% } %>
     </div>
