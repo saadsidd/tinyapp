@@ -65,10 +65,19 @@ app.post('/register', (req, res) => {
   const newUserID = generateRandomString();
   const newEmail = req.body.email;
   const newPassword = req.body.password;
-  users[newUserID] = { id: newUserID, email: newEmail, password: newPassword };
 
-  res.cookie('user_id', newUserID);
-  res.redirect('/urls');
+  if (newEmail === '' || newPassword === '') {
+    res.status(400);
+    res.send('<html><h2>Error 400</h2><p>Empty email or password</p></html>');
+  } else if (checkForExistingEmail(newEmail, users)) {
+    res.status(400);
+    res.send('<html><h2>Error 400</h2><p>Email already registered</p></html>');
+  } else {
+    users[newUserID] = { id: newUserID, email: newEmail, password: newPassword };
+    res.cookie('user_id', newUserID);
+    res.redirect('/urls');
+  }
+
 });
 
 // TESTING PURPOSES TO SEE DATABASES
@@ -169,4 +178,14 @@ const generateRandomString = function() {
   }
 
   return shortURL;
+};
+
+// Checks if user-submitted newEmail already exists in users object
+const checkForExistingEmail = function(email, data) {
+  for (const key in data) {
+    if (data[key].email === email) {
+      return true;
+    }
+  }
+  return false;
 };
