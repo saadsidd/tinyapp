@@ -48,9 +48,22 @@ app.get('/login', (req, res) => {
   res.render('login', templateVars);
 });
 
-// Response to user entering a username and clicking Login
+// Response to user entering an email and clicking Login
 app.post('/login', (req, res) => {
-  res.redirect('/urls');
+  const email = req.body.email;
+  const password = req.body.password;
+  const existingEmailId = checkForExistingEmail(email, users);
+
+  if (!existingEmailId) {
+    res.status(403);
+    res.send('<html><h2>Error 403</h2><p>Email not found</p></html>');
+  } else if (users[existingEmailId].password !== password) {
+    res.status(403);
+    res.send('<html><h2>Error 403</h2><p>Password does not match</p></html>');
+  } else {
+    res.cookie('user_id', existingEmailId);
+    res.redirect('/urls');
+  }
 });
 
 // Response to user clicking Logout
@@ -70,11 +83,12 @@ app.post('/register', (req, res) => {
   const newUserID = generateRandomString();
   const newEmail = req.body.email;
   const newPassword = req.body.password;
+  const existingEmailId = checkForExistingEmail(newEmail, users);
 
   if (newEmail === '' || newPassword === '') {
     res.status(400);
     res.send('<html><h2>Error 400</h2><p>Empty email or password</p></html>');
-  } else if (checkForExistingEmail(newEmail, users)) {
+  } else if (existingEmailId) {
     res.status(400);
     res.send('<html><h2>Error 400</h2><p>Email already registered</p></html>');
   } else {
@@ -185,11 +199,11 @@ const generateRandomString = function() {
   return shortURL;
 };
 
-// Checks if user-submitted newEmail already exists in users object
+// Checks if email matches in users database, and returns the id if it does
 const checkForExistingEmail = function(email, data) {
   for (const key in data) {
     if (data[key].email === email) {
-      return true;
+      return key;
     }
   }
   return false;
