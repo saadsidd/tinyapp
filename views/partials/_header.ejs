@@ -1,5 +1,5 @@
 <header>
-  <nav class="navbar navbar-expand-md navbar-light" style="background-color: #b4dfff;">
+  <nav class="navbar navbar-expand-md navbar-light" style="background: #b4dfff;">
     <a class="navbar-brand" href="/urls" style="font-weight: 500;">TinyApp</a>
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
@@ -10,11 +10,12 @@
         <a class="nav-item nav-link" href="/urls/new">Create New URL</a>
       </div class="navbar-nav ml-auto justify-content-end">
           <% if (user !== undefined) { %>
-            <form class="form-inline" action="/logout" method="POST">
-              <div class="form-group">
-                <label for="username" style="margin-right: 10px;">Logged in as: <%= user.email %></label>
-                <button type="submit" class="btn btn-outline-danger">Logout</button>
-              </div>
+            <form class="ml-auto" action="/logout" method="POST">
+                <label for="username" style="margin-right: 10px;">
+                  <span style="color: rgb(140, 140, 140);">Logged in as: </span>
+                  <%= user.email %>
+                </label>
+                <button type="submit" class="btn btn-danger">Logout</button>
             </form>
           <% } else { %>
             <form class="ml-auto" action="/register" method="GET">
