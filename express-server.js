@@ -17,10 +17,16 @@ app.use(morgan('dev'));
 // Use EJS as Express app's templating engine
 app.set('view engine', 'ejs');
 
-// Test "database" for storing or retrieving shortened URLs
+// Test "database" for storing or retrieving shortened URLs associated with specific users
 const urlDatabase = {
-  'b2xVn2': 'http://www.lighthouselabs.ca',
-  '9sm5xK': 'http://www.google.com'
+  b6UTxQ: {
+    longURL: "https://www.tsn.ca",
+    userID: "aJ48lW"
+  },
+  i3BoGr: {
+    longURL: "https://www.google.ca",
+    userID: "aJ48lW"
+  }
 };
 
 // Test "database" for storing or retrieving user login credentials
@@ -28,14 +34,27 @@ const users = {
   'f8Sm3K': {
     id: 'f8Sm3K',
     email: 'user@example.com',
-    password: 'purple-monkey-dinosaur'
+    password: 'purple-monkey'
   },
   '2HxL3A': {
     id: '2HxL3A',
     email: 'user2@example.com',
     password: 'dishwasher-funk'
+  },
+  '3jKwH8': {
+    id: '3jKwH8',
+    email: 'asdf@asdf',
+    password: 'asdf'
   }
 };
+
+// TESTING PURPOSES TO SEE DATABASES
+app.get('/urls.json', (req, res) => {
+  res.json(urlDatabase);
+});
+app.get('/users.json', (req, res) => {
+  res.json(users);
+});
 
 // Response to first page
 app.get('/', (req, res) => {
@@ -80,7 +99,7 @@ app.get('/register', (req, res) => {
 
 // Response to user submitting email/password when registering
 app.post('/register', (req, res) => {
-  const newUserID = generateRandomString();
+  const newUserId = generateRandomString();
   const newEmail = req.body.email;
   const newPassword = req.body.password;
   const existingEmailId = checkForExistingEmail(newEmail, users);
@@ -92,19 +111,11 @@ app.post('/register', (req, res) => {
     res.status(400);
     res.send('<html><h2>Error 400</h2><p>Email already registered</p></html>');
   } else {
-    users[newUserID] = { id: newUserID, email: newEmail, password: newPassword };
-    res.cookie('user_id', newUserID);
+    users[newUserId] = { id: newUserId, email: newEmail, password: newPassword };
+    res.cookie('user_id', newUserId);
     res.redirect('/urls');
   }
 
-});
-
-// TESTING PURPOSES TO SEE DATABASES
-app.get('/urls.json', (req, res) => {
-  res.json(urlDatabase);
-});
-app.get('/users.json', (req, res) => {
-  res.json(users);
 });
 
 // Response to /urls which sends urlDatabase to urls_index to be rendered on page
@@ -125,42 +136,67 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 
 // Response to POST request to update shortURL with a newly given longURL
 app.post('/urls/:shortURL', (req, res) => {
-  const shortURL = req.params.shortURL;
-  const newLongURL = req.body.longURL;
-  urlDatabase[shortURL] = newLongURL;
-  res.redirect('/urls');
+  if (!req.cookies['user_id']) {
+    res.status(403);
+    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
+  } else {
+    const shortURL = req.params.shortURL;
+    const newLongURL = req.body.longURL;
+    urlDatabase[shortURL].longURL = newLongURL;
+    res.redirect('/urls');
+  }
 });
 
 // Response to POST request from /urls/new. We get longURL as object in req.body thanks to body-parser
-// Saving new generated random shortURL key in urlDatabase with user's longURL value
+// Saving new generated random shortURL key in urlDatabase with user's longURL and login ID
 app.post('/urls', (req, res) => {
-  const newShortURL = generateRandomString();
-  urlDatabase[newShortURL] = req.body.longURL;
-  res.redirect(`/urls/${newShortURL}`);
+  if (!req.cookies['user_id']) {
+    res.status(403);
+    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
+  } else {
+    const newShortURL = generateRandomString();
+    urlDatabase[newShortURL] = { longURL: req.body.longURL, userID: req.cookies['user_id']};
+    res.redirect(`/urls/${newShortURL}`);
+  }
 });
 
 // Response to /urls/new for POST requests from users of URLs to shorten
 // Place above /urls/:shortURL as route order matters
 app.get('/urls/new', (req, res) => {
-  const templateVars = { user: users[req.cookies['user_id']] };
-  res.render('urls_new', templateVars);
+  if (!req.cookies['user_id']) {
+    res.redirect('/login');
+  } else {
+    const templateVars = { user: users[req.cookies['user_id']] };
+    res.render('urls_new', templateVars);
+  }
 });
 
 // Response to (for example) /url/a8tKA2G where a8tKA2G is route parameter found in req.params
 app.get('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
-  const templateVars = {
-    user: users[req.cookies['user_id']],
-    shortURL,
-    longURL: urlDatabase[shortURL] };
-  res.render('urls_show', templateVars);
+  if (!urlDatabase[shortURL]) {
+    res.status(404);
+    res.send('<html><h2>Error 404</h2><p>Page not found</p></html>');
+  } else {
+    const templateVars = {
+      user: users[req.cookies['user_id']],
+      shortURL,
+      longURL: urlDatabase[shortURL].longURL
+    };
+    res.render('urls_show', templateVars);
+  }
 });
 
-// Redirect user back to longURL when shortURL is clicked on after generating it
+// Redirect user to longURL when shortURL is clicked on after generating it
 app.get("/u/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
-  const longURL = urlDatabase[shortURL];
-  res.redirect(longURL);
+  if (!urlDatabase[shortURL]) {
+    res.status(400);
+    res.send(`<html><h2>Error 400</h2><p>Unable to redirect to ${shortURL}</p></html>`);
+  } else {
+    const longURL = urlDatabase[shortURL].longURL;
+    res.redirect(longURL);
+  }
 });
 
 // Start listening at port 8080
