@@ -23,6 +23,20 @@ const urlDatabase = {
   '9sm5xK': 'http://www.google.com'
 };
 
+// Test "database" for storing or retrieving user login credentials
+const users = {
+  'f8Sm3K': {
+    id: 'f8Sm3K',
+    email: 'user@example.com',
+    password: 'purple-monkey-dinosaur'
+  },
+  '2HxL3A': {
+    id: '2HxL3A',
+    email: 'user2@example.com',
+    password: 'dishwasher-funk'
+  }
+};
+
 // Response to first page
 app.get('/', (req, res) => {
   res.redirect('/urls');
@@ -36,26 +50,39 @@ app.post('/login', (req, res) => {
 
 // Response to user clicking Logout
 app.post('/logout', (req, res) => {
-  console.log('clearing cookie');
   res.clearCookie('username', req.body.username);
   res.redirect('/urls');
 });
 
 // Response to user navigating to /register
 app.get('/register', (req, res) => {
-  const templateVars = { username: req.cookies['username'] };
+  const templateVars = { user: users[req.cookies['user_id']] };
   res.render('register', templateVars);
 });
 
-// Response to /urls.json which sends urlDatabase object
+// Response to user submitting email/password when registering
+app.post('/register', (req, res) => {
+  const newUserID = generateRandomString();
+  const newEmail = req.body.email;
+  const newPassword = req.body.password;
+  users[newUserID] = { id: newUserID, email: newEmail, password: newPassword };
+
+  res.cookie('user_id', newUserID);
+  res.redirect('/urls');
+});
+
+// TESTING PURPOSES TO SEE DATABASES
 app.get('/urls.json', (req, res) => {
   res.json(urlDatabase);
+});
+app.get('/users.json', (req, res) => {
+  res.json(users);
 });
 
 // Response to /urls which sends urlDatabase to urls_index to be rendered on page
 app.get('/urls', (req, res) => {
   const templateVars = {
-    username: req.cookies['username'],
+    user: users[req.cookies['user_id']],
     urls: urlDatabase
   };
   res.render('urls_index', templateVars);
@@ -79,15 +106,15 @@ app.post('/urls/:shortURL', (req, res) => {
 // Response to POST request from /urls/new. We get longURL as object in req.body thanks to body-parser
 // Saving new generated random shortURL key in urlDatabase with user's longURL value
 app.post('/urls', (req, res) => {
-  const shortURL = generateRandomString();
-  urlDatabase[shortURL] = req.body.longURL;
-  res.redirect(`/urls/${shortURL}`);
+  const newShortURL = generateRandomString();
+  urlDatabase[newShortURL] = req.body.longURL;
+  res.redirect(`/urls/${newShortURL}`);
 });
 
 // Response to /urls/new for POST requests from users of URLs to shorten
 // Place above /urls/:shortURL as route order matters
 app.get('/urls/new', (req, res) => {
-  const templateVars = { username: req.cookies['username'] };
+  const templateVars = { user: users[req.cookies['user_id']] };
   res.render('urls_new', templateVars);
 });
 
@@ -95,7 +122,7 @@ app.get('/urls/new', (req, res) => {
 app.get('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   const templateVars = {
-    username: req.cookies['username'],
+    user: users[req.cookies['user_id']],
     shortURL,
     longURL: urlDatabase[shortURL] };
   res.render('urls_show', templateVars);
@@ -110,7 +137,7 @@ app.get("/u/:shortURL", (req, res) => {
 
 // Start listening at port 8080
 app.listen(PORT, () => {
-  console.log(`Example app listening on port ${PORT}`);
+  console.log(`Listening on port ${PORT}`);
 });
 
 // Generates a random 6 character alphanumeric string
