@@ -21,7 +21,7 @@ app.set('view engine', 'ejs');
 const urlDatabase = {
   b6UTxQ: {
     longURL: "https://www.tsn.ca",
-    userID: "aJ48lW"
+    userID: "f8Sm3K"
   },
   i3BoGr: {
     longURL: "https://www.google.ca",
@@ -41,8 +41,8 @@ const users = {
     email: 'user2@example.com',
     password: 'dishwasher-funk'
   },
-  '3jKwH8': {
-    id: '3jKwH8',
+  'aJ48lW': {
+    id: 'aJ48lW',
     email: 'asdf@asdf',
     password: 'asdf'
   }
@@ -58,7 +58,7 @@ app.get('/users.json', (req, res) => {
 
 // Response to first page
 app.get('/', (req, res) => {
-  res.redirect('/urls');
+  res.redirect('/login');
 });
 
 // Response to /login
@@ -88,7 +88,7 @@ app.post('/login', (req, res) => {
 // Response to user clicking Logout
 app.post('/logout', (req, res) => {
   res.clearCookie('user_id');
-  res.redirect('/urls');
+  res.redirect('/login');
 });
 
 // Response to user navigating to /register
@@ -99,7 +99,7 @@ app.get('/register', (req, res) => {
 
 // Response to user submitting email/password when registering
 app.post('/register', (req, res) => {
-  const newUserId = generateRandomString();
+  const newUserID = generateRandomString();
   const newEmail = req.body.email;
   const newPassword = req.body.password;
   const existingEmailId = checkForExistingEmail(newEmail, users);
@@ -111,8 +111,8 @@ app.post('/register', (req, res) => {
     res.status(400);
     res.send('<html><h2>Error 400</h2><p>Email already registered</p></html>');
   } else {
-    users[newUserId] = { id: newUserId, email: newEmail, password: newPassword };
-    res.cookie('user_id', newUserId);
+    users[newUserID] = { id: newUserID, email: newEmail, password: newPassword };
+    res.cookie('user_id', newUserID);
     res.redirect('/urls');
   }
 
@@ -120,18 +120,31 @@ app.post('/register', (req, res) => {
 
 // Response to /urls which sends urlDatabase to urls_index to be rendered on page
 app.get('/urls', (req, res) => {
-  const templateVars = {
-    user: users[req.cookies['user_id']],
-    urls: urlDatabase
-  };
-  res.render('urls_index', templateVars);
+  const userID = req.cookies['user_id'];
+
+  if (!userID) {
+    res.status(403);
+    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
+  } else {
+    const templateVars = {
+      user: users[userID],
+      urls: urlsForUser(userID)
+    };
+    console.log('templateVars: ', templateVars);
+    res.render('urls_index', templateVars);
+  }
 });
 
 // Response to user pressing Delete button for specific URL
 app.post('/urls/:shortURL/delete', (req, res) => {
-  const shortURL = req.params.shortURL;
-  delete urlDatabase[shortURL];
-  res.redirect('/urls');
+  if (!req.cookies['user_id']) {
+    res.status(403);
+    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
+  } else {
+    const shortURL = req.params.shortURL;
+    delete urlDatabase[shortURL];
+    res.redirect('/urls');
+  }
 });
 
 // Response to POST request to update shortURL with a newly given longURL
@@ -174,12 +187,20 @@ app.get('/urls/new', (req, res) => {
 // Response to (for example) /url/a8tKA2G where a8tKA2G is route parameter found in req.params
 app.get('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
+  const userID = req.cookies['user_id'];
+
   if (!urlDatabase[shortURL]) {
     res.status(404);
     res.send('<html><h2>Error 404</h2><p>Page not found</p></html>');
+  } else if (!userID) {
+    res.status(403);
+    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
+  } else if (urlDatabase[shortURL].userID !== userID) {
+    res.status(403);
+    res.send('<html><h2>Error 403</h2><p>Incorrect user</p></html>');
   } else {
     const templateVars = {
-      user: users[req.cookies['user_id']],
+      user: users[userID],
       shortURL,
       longURL: urlDatabase[shortURL].longURL
     };
@@ -215,24 +236,24 @@ const generateRandomString = function() {
     1, 2, 3, 4, 5, 6, 7, 8, 9, 0
   ];
 
-  let shortURL = '';
+  let randomString = '';
 
   for (let i = 0; i < 6; i++) {
     const lowerUpperOrNum = Math.random();
 
     if (lowerUpperOrNum < 0.3) {
       // Get a lowercase letter
-      shortURL += chars[Math.floor(Math.random() * 26)];
+      randomString += chars[Math.floor(Math.random() * 26)];
     } else if (lowerUpperOrNum >= 0.3 && lowerUpperOrNum < 0.6) {
       // Get an uppercase letter
-      shortURL += chars[Math.floor(Math.random() * 26 + 26)];
+      randomString += chars[Math.floor(Math.random() * 26 + 26)];
     } else {
       // Get a number
-      shortURL += chars[Math.floor(Math.random() * 10 + 52)];
+      randomString += chars[Math.floor(Math.random() * 10 + 52)];
     }
   }
 
-  return shortURL;
+  return randomString;
 };
 
 // Checks if email matches in users database, and returns the id if it does
@@ -243,4 +264,14 @@ const checkForExistingEmail = function(email, data) {
     }
   }
   return false;
+};
+
+const urlsForUser = function(id) {
+  const filteredUrlDatabase = {};
+  for (const url in urlDatabase) {
+    if (urlDatabase[url].userID === id) {
+      filteredUrlDatabase[url] = urlDatabase[url];
+    }
+  }
+  return filteredUrlDatabase;
 };
