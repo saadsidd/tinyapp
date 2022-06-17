@@ -18,4 +18,40 @@ const getUrlsForUser = function(id, database) {
   return filteredUrlDatabase;
 };
 
-module.exports = { getUserByEmail, getUrlsForUser };
+// Generates a random 6 character alphanumeric string
+const generateRandomString = function() {
+
+  const chars = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+    'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 0
+  ];
+
+  let randomString = '';
+
+  for (let i = 0; i < 6; i++) {
+    const lowerUpperOrNum = Math.random();
+
+    if (lowerUpperOrNum < 0.3) {
+      // Get a lowercase letter
+      randomString += chars[Math.floor(Math.random() * 26)];
+    } else if (lowerUpperOrNum >= 0.3 && lowerUpperOrNum < 0.6) {
+      // Get an uppercase letter
+      randomString += chars[Math.floor(Math.random() * 26 + 26)];
+    } else {
+      // Get a number
+      randomString += chars[Math.floor(Math.random() * 10 + 52)];
+    }
+  }
+
+  return randomString;
+};
+
+// Sends given error code and message to response
+const sendResError = function(errorCode, message, res) {
+  res.status(errorCode).send(`<html><h2>Error ${errorCode}</h2><p>${message}</p></html>`);
+};
+
+module.exports = { getUserByEmail, getUrlsForUser, generateRandomString, sendResError };
