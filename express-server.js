@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const morgan = require('morgan');
 const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
+const { getUserByEmail, getUrlsForUser } = require('./helpers');
 const PORT = 8080;  // Default port
 
 // Adding body-parser to app to make POST data readable from Buffer
@@ -129,7 +130,7 @@ app.get('/urls', (req, res) => {
   } else {
     const templateVars = {
       user: users[userID],
-      urls: urlsForUser(userID)
+      urls: getUrlsForUser(userID, urlDatabase)
     };
     res.render('urls_index', templateVars);
   }
@@ -254,24 +255,4 @@ const generateRandomString = function() {
   }
 
   return randomString;
-};
-
-// Checks if email matches in users database, and returns the id if it does
-const getUserByEmail = function(email, data) {
-  for (const key in data) {
-    if (data[key].email === email) {
-      return key;
-    }
-  }
-  return false;
-};
-
-const urlsForUser = function(id) {
-  const filteredUrlDatabase = {};
-  for (const url in urlDatabase) {
-    if (urlDatabase[url].userID === id) {
-      filteredUrlDatabase[url] = urlDatabase[url];
-    }
-  }
-  return filteredUrlDatabase;
 };
