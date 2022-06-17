@@ -3,6 +3,7 @@ const app = express();
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
+const bcrypt = require('bcryptjs');
 const PORT = 8080;  // Default port
 
 // Adding body-parser to app to make POST data readable from Buffer
@@ -76,7 +77,7 @@ app.post('/login', (req, res) => {
   if (!existingEmailId) {
     res.status(403);
     res.send('<html><h2>Error 403</h2><p>Email not found</p></html>');
-  } else if (users[existingEmailId].password !== password) {
+  } else if (!bcrypt.compareSync(password, users[existingEmailId].password)) {
     res.status(403);
     res.send('<html><h2>Error 403</h2><p>Password does not match</p></html>');
   } else {
@@ -111,7 +112,7 @@ app.post('/register', (req, res) => {
     res.status(400);
     res.send('<html><h2>Error 400</h2><p>Email already registered</p></html>');
   } else {
-    users[newUserID] = { id: newUserID, email: newEmail, password: newPassword };
+    users[newUserID] = { id: newUserID, email: newEmail, password: bcrypt.hashSync(newPassword, 10) };
     res.cookie('user_id', newUserID);
     res.redirect('/urls');
   }
@@ -130,7 +131,6 @@ app.get('/urls', (req, res) => {
       user: users[userID],
       urls: urlsForUser(userID)
     };
-    console.log('templateVars: ', templateVars);
     res.render('urls_index', templateVars);
   }
 });
