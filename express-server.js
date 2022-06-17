@@ -2,15 +2,15 @@ const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
 const morgan = require('morgan');
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const PORT = 8080;  // Default port
 
 // Adding body-parser to app to make POST data readable from Buffer
 app.use(bodyParser.urlencoded({extended: true}));
 
-// Adding cookie-parser to read in our login information
-app.use(cookieParser());
+// Adding cookie-session to encrypt as well as read in our user_id cookie
+app.use(cookieSession({ name: 'user_id', keys: ['mykey5023', 'yourkey0692', 'ourkey1047'] }));
 
 // Adding http request logger to app
 app.use(morgan('dev'));
@@ -64,7 +64,7 @@ app.get('/', (req, res) => {
 
 // Response to /login
 app.get('/login', (req, res) => {
-  const templateVars = { user: users[req.cookies['user_id']] };
+  const templateVars = { user: users[req.session.user_id] };
   res.render('login', templateVars);
 });
 
@@ -72,7 +72,7 @@ app.get('/login', (req, res) => {
 app.post('/login', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const existingEmailId = checkForExistingEmail(email, users);
+  const existingEmailId = getUserByEmail(email, users);
 
   if (!existingEmailId) {
     res.status(403);
@@ -81,20 +81,20 @@ app.post('/login', (req, res) => {
     res.status(403);
     res.send('<html><h2>Error 403</h2><p>Password does not match</p></html>');
   } else {
-    res.cookie('user_id', existingEmailId);
+    req.session.user_id = existingEmailId;
     res.redirect('/urls');
   }
 });
 
 // Response to user clicking Logout
 app.post('/logout', (req, res) => {
-  res.clearCookie('user_id');
+  req.session = null;
   res.redirect('/login');
 });
 
 // Response to user navigating to /register
 app.get('/register', (req, res) => {
-  const templateVars = { user: users[req.cookies['user_id']] };
+  const templateVars = { user: users[req.session.user_id] };
   res.render('register', templateVars);
 });
 
@@ -103,7 +103,7 @@ app.post('/register', (req, res) => {
   const newUserID = generateRandomString();
   const newEmail = req.body.email;
   const newPassword = req.body.password;
-  const existingEmailId = checkForExistingEmail(newEmail, users);
+  const existingEmailId = getUserByEmail(newEmail, users);
 
   if (newEmail === '' || newPassword === '') {
     res.status(400);
@@ -113,7 +113,7 @@ app.post('/register', (req, res) => {
     res.send('<html><h2>Error 400</h2><p>Email already registered</p></html>');
   } else {
     users[newUserID] = { id: newUserID, email: newEmail, password: bcrypt.hashSync(newPassword, 10) };
-    res.cookie('user_id', newUserID);
+    req.session.user_id = newUserID;
     res.redirect('/urls');
   }
 
@@ -121,7 +121,7 @@ app.post('/register', (req, res) => {
 
 // Response to /urls which sends urlDatabase to urls_index to be rendered on page
 app.get('/urls', (req, res) => {
-  const userID = req.cookies['user_id'];
+  const userID = req.session.user_id;
 
   if (!userID) {
     res.status(403);
@@ -137,7 +137,7 @@ app.get('/urls', (req, res) => {
 
 // Response to user pressing Delete button for specific URL
 app.post('/urls/:shortURL/delete', (req, res) => {
-  if (!req.cookies['user_id']) {
+  if (!req.session.user_id) {
     res.status(403);
     res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
   } else {
@@ -149,7 +149,7 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 
 // Response to POST request to update shortURL with a newly given longURL
 app.post('/urls/:shortURL', (req, res) => {
-  if (!req.cookies['user_id']) {
+  if (!req.session.user_id) {
     res.status(403);
     res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
   } else {
@@ -163,12 +163,12 @@ app.post('/urls/:shortURL', (req, res) => {
 // Response to POST request from /urls/new. We get longURL as object in req.body thanks to body-parser
 // Saving new generated random shortURL key in urlDatabase with user's longURL and login ID
 app.post('/urls', (req, res) => {
-  if (!req.cookies['user_id']) {
+  if (!req.session.user_id) {
     res.status(403);
     res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
   } else {
     const newShortURL = generateRandomString();
-    urlDatabase[newShortURL] = { longURL: req.body.longURL, userID: req.cookies['user_id']};
+    urlDatabase[newShortURL] = { longURL: req.body.longURL, userID: req.session.user_id};
     res.redirect(`/urls/${newShortURL}`);
   }
 });
@@ -176,10 +176,10 @@ app.post('/urls', (req, res) => {
 // Response to /urls/new for POST requests from users of URLs to shorten
 // Place above /urls/:shortURL as route order matters
 app.get('/urls/new', (req, res) => {
-  if (!req.cookies['user_id']) {
+  if (!req.session.user_id) {
     res.redirect('/login');
   } else {
-    const templateVars = { user: users[req.cookies['user_id']] };
+    const templateVars = { user: users[req.session.user_id] };
     res.render('urls_new', templateVars);
   }
 });
@@ -187,7 +187,7 @@ app.get('/urls/new', (req, res) => {
 // Response to (for example) /url/a8tKA2G where a8tKA2G is route parameter found in req.params
 app.get('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
-  const userID = req.cookies['user_id'];
+  const userID = req.session.user_id;
 
   if (!urlDatabase[shortURL]) {
     res.status(404);
@@ -257,7 +257,7 @@ const generateRandomString = function() {
 };
 
 // Checks if email matches in users database, and returns the id if it does
-const checkForExistingEmail = function(email, data) {
+const getUserByEmail = function(email, data) {
   for (const key in data) {
     if (data[key].email === email) {
       return key;
