@@ -1,132 +1,43 @@
 const express = require('express');
 const app = express();
+
 const bodyParser = require('body-parser');
-const morgan = require('morgan');
 const cookieSession = require('cookie-session');
+const morgan = require('morgan');
 const bcrypt = require('bcryptjs');
-const { getUserByEmail, getUrlsForUser } = require('./helpers');
+
+const { getUserByEmail, getUrlsForUser, generateRandomString, sendResError } = require('./helpers');
 const PORT = 8080;  // Default port
 
-// Adding body-parser to app to make POST data readable from Buffer
+// Middleware
 app.use(bodyParser.urlencoded({extended: true}));
-
-// Adding cookie-session to encrypt as well as read in our user_id cookie
 app.use(cookieSession({ name: 'user_id', keys: ['mykey5023', 'yourkey0692', 'ourkey1047'] }));
-
-// Adding http request logger to app
 app.use(morgan('dev'));
 
-// Use EJS as Express app's templating engine
 app.set('view engine', 'ejs');
 
-// Test "database" for storing or retrieving shortened URLs associated with specific users
-const urlDatabase = {
-  b6UTxQ: {
-    longURL: "https://www.tsn.ca",
-    userID: "f8Sm3K"
-  },
-  i3BoGr: {
-    longURL: "https://www.google.ca",
-    userID: "aJ48lW"
-  }
-};
+// Database for storing/retrieving shortened URLs associated with specific users
+const urlDatabase = {};
 
-// Test "database" for storing or retrieving user login credentials
-const users = {
-  'f8Sm3K': {
-    id: 'f8Sm3K',
-    email: 'user@example.com',
-    password: 'purple-monkey'
-  },
-  '2HxL3A': {
-    id: '2HxL3A',
-    email: 'user2@example.com',
-    password: 'dishwasher-funk'
-  },
-  'aJ48lW': {
-    id: 'aJ48lW',
-    email: 'asdf@asdf',
-    password: 'asdf'
-  }
-};
+// Database for storing/retrieving user login credentials
+const users = {};
 
-// TESTING PURPOSES TO SEE DATABASES
-app.get('/urls.json', (req, res) => {
-  res.json(urlDatabase);
-});
-app.get('/users.json', (req, res) => {
-  res.json(users);
-});
-
-// Response to first page
+// If logged in go to /urls, otherwise /login
 app.get('/', (req, res) => {
-  res.redirect('/login');
-});
-
-// Response to /login
-app.get('/login', (req, res) => {
-  const templateVars = { user: users[req.session.user_id] };
-  res.render('login', templateVars);
-});
-
-// Response to user entering an email and clicking Login
-app.post('/login', (req, res) => {
-  const email = req.body.email;
-  const password = req.body.password;
-  const existingEmailId = getUserByEmail(email, users);
-
-  if (!existingEmailId) {
-    res.status(403);
-    res.send('<html><h2>Error 403</h2><p>Email not found</p></html>');
-  } else if (!bcrypt.compareSync(password, users[existingEmailId].password)) {
-    res.status(403);
-    res.send('<html><h2>Error 403</h2><p>Password does not match</p></html>');
-  } else {
-    req.session.user_id = existingEmailId;
+  if (req.session.user_id) {
     res.redirect('/urls');
+  } else {
+    res.redirect('/login');
   }
 });
 
-// Response to user clicking Logout
-app.post('/logout', (req, res) => {
-  req.session = null;
-  res.redirect('/login');
-});
-
-// Response to user navigating to /register
-app.get('/register', (req, res) => {
-  const templateVars = { user: users[req.session.user_id] };
-  res.render('register', templateVars);
-});
-
-// Response to user submitting email/password when registering
-app.post('/register', (req, res) => {
-  const newUserID = generateRandomString();
-  const newEmail = req.body.email;
-  const newPassword = req.body.password;
-  const existingEmailId = getUserByEmail(newEmail, users);
-
-  if (newEmail === '' || newPassword === '') {
-    res.status(400);
-    res.send('<html><h2>Error 400</h2><p>Empty email or password</p></html>');
-  } else if (existingEmailId) {
-    res.status(400);
-    res.send('<html><h2>Error 400</h2><p>Email already registered</p></html>');
-  } else {
-    users[newUserID] = { id: newUserID, email: newEmail, password: bcrypt.hashSync(newPassword, 10) };
-    req.session.user_id = newUserID;
-    res.redirect('/urls');
-  }
-
-});
-
-// Response to /urls which sends urlDatabase to urls_index to be rendered on page
+// Render urls_index with user's saved URLs
+// Error if not logged in
 app.get('/urls', (req, res) => {
   const userID = req.session.user_id;
 
   if (!userID) {
-    res.status(403);
-    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
+    sendResError(403, 'Login required', res);
   } else {
     const templateVars = {
       user: users[userID],
@@ -136,69 +47,31 @@ app.get('/urls', (req, res) => {
   }
 });
 
-// Response to user pressing Delete button for specific URL
-app.post('/urls/:shortURL/delete', (req, res) => {
-  if (!req.session.user_id) {
-    res.status(403);
-    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
-  } else {
-    const shortURL = req.params.shortURL;
-    delete urlDatabase[shortURL];
-    res.redirect('/urls');
-  }
-});
-
-// Response to POST request to update shortURL with a newly given longURL
-app.post('/urls/:shortURL', (req, res) => {
-  if (!req.session.user_id) {
-    res.status(403);
-    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
-  } else {
-    const shortURL = req.params.shortURL;
-    const newLongURL = req.body.longURL;
-    urlDatabase[shortURL].longURL = newLongURL;
-    res.redirect('/urls');
-  }
-});
-
-// Response to POST request from /urls/new. We get longURL as object in req.body thanks to body-parser
-// Saving new generated random shortURL key in urlDatabase with user's longURL and login ID
-app.post('/urls', (req, res) => {
-  if (!req.session.user_id) {
-    res.status(403);
-    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
-  } else {
-    const newShortURL = generateRandomString();
-    urlDatabase[newShortURL] = { longURL: req.body.longURL, userID: req.session.user_id};
-    res.redirect(`/urls/${newShortURL}`);
-  }
-});
-
-// Response to /urls/new for POST requests from users of URLs to shorten
+// Renders a page with form to create new short URL. Redirects to /login if logged out
 // Place above /urls/:shortURL as route order matters
 app.get('/urls/new', (req, res) => {
-  if (!req.session.user_id) {
+  const userID = req.session.user_id;
+
+  if (!userID) {
     res.redirect('/login');
   } else {
-    const templateVars = { user: users[req.session.user_id] };
+    const templateVars = { user: users[userID] };
     res.render('urls_new', templateVars);
   }
 });
 
-// Response to (for example) /url/a8tKA2G where a8tKA2G is route parameter found in req.params
+// Render urls_show to show generated short URL and an edit form to change if wanted
+// Error if not logged in, invalid short URL, or URL not owned by current user
 app.get('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   const userID = req.session.user_id;
 
-  if (!urlDatabase[shortURL]) {
-    res.status(404);
-    res.send('<html><h2>Error 404</h2><p>Page not found</p></html>');
-  } else if (!userID) {
-    res.status(403);
-    res.send('<html><h2>Error 403</h2><p>User must be logged in</p></html>');
+  if (!userID) {
+    sendResError(403, 'Login required', res);
+  } else if (!urlDatabase[shortURL]) {
+    sendResError(404, 'Page not found', res);
   } else if (urlDatabase[shortURL].userID !== userID) {
-    res.status(403);
-    res.send('<html><h2>Error 403</h2><p>Incorrect user</p></html>');
+    sendResError(403, 'Access not allowed', res);
   } else {
     const templateVars = {
       user: users[userID],
@@ -209,50 +82,133 @@ app.get('/urls/:shortURL', (req, res) => {
   }
 });
 
-// Redirect user to longURL when shortURL is clicked on after generating it
-app.get("/u/:shortURL", (req, res) => {
+// Redirect user to longURL from shortURL
+// Error if shortURL does not exist in database
+app.get('/u/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   if (!urlDatabase[shortURL]) {
-    res.status(400);
-    res.send(`<html><h2>Error 400</h2><p>Unable to redirect to ${shortURL}</p></html>`);
+    sendResError(400, `Unable to redirect to ${shortURL}`, res);
   } else {
     const longURL = urlDatabase[shortURL].longURL;
     res.redirect(longURL);
   }
 });
 
-// Start listening at port 8080
+// Saving generated shortURL in database under user's login
+// Error if not logged in
+app.post('/urls', (req, res) => {
+  const userID = req.session.user_id;
+
+  if (!userID) {
+    sendResError(403, 'Login required', res);
+  } else {
+    const newShortURL = generateRandomString();
+    const longURL = req.body.longURL;
+    urlDatabase[newShortURL] = { longURL, userID: userID };
+    res.redirect(`/urls/${newShortURL}`);
+  }
+});
+
+// Updating shortURL with a newly given longURL
+// Error if user not logged in, or shortURL is not associated with user
+app.post('/urls/:shortURL', (req, res) => {
+  const userID = req.session.user_id;
+  const shortURL = req.params.shortURL;
+
+  if (!userID) {
+    sendResError(403, 'Login required', res);
+  } else if (urlDatabase[shortURL].userID !== userID) {
+    sendResError(403, 'Access not allowed', res);
+  } else {
+    const newLongURL = req.body.longURL;
+    urlDatabase[shortURL].longURL = newLongURL;
+    res.redirect('/urls');
+  }
+});
+
+// Deleting specific URL from database
+// Error if not logged in, or shortURL does not belong to user
+app.post('/urls/:shortURL/delete', (req, res) => {
+  const userID = req.session.user_id;
+  const shortURL = req.params.shortURL;
+
+  if (!userID) {
+    sendResError(403, 'Login required', res);
+  } else if (urlDatabase[shortURL].userID !== userID) {
+    sendResError(403, 'Access not allowed', res);
+  } else {
+    delete urlDatabase[shortURL];
+    res.redirect('/urls');
+  }
+});
+
+// If user already logged in then redirect to /urls, otherwise render login page
+app.get('/login', (req, res) => {
+  const userID = req.session.user_id;
+
+  if (userID) {
+    res.redirect('/urls');
+  } else {
+    const templateVars = { user: users[userID] };
+    res.render('login', templateVars);
+  }
+});
+
+// If user already logged in then redirect to /urls, otherwise render register page
+app.get('/register', (req, res) => {
+  const userID = req.session.user_id;
+
+  if (userID) {
+    res.redirect('/urls');
+  } else {
+    const templateVars = { user: users[userID] };
+    res.render('register', templateVars);
+  }
+});
+
+// Sets session cookie then redirects to /urls
+// Error if email not in database, or password does not match email
+app.post('/login', (req, res) => {
+  const email = req.body.email;
+  const password = req.body.password;
+  const existingUser = getUserByEmail(email, users);
+
+  if (!existingUser) {
+    sendResError(403, 'Email not found', res);
+  } else if (!bcrypt.compareSync(password, users[existingUser].password)) {
+    sendResError(403, 'Password does not match', res);
+  } else {
+    req.session.user_id = existingUser;
+    res.redirect('/urls');
+  }
+});
+
+// Sets session cookie, creates user in database with encrypted password, then redirects to /urls
+// Error if empty email or password field, or email already exists
+app.post('/register', (req, res) => {
+  const newUserID = generateRandomString();
+  const newEmail = req.body.email;
+  const newPassword = req.body.password;
+  const existingUser = getUserByEmail(newEmail, users);
+
+  if (newEmail === '' || newPassword === '') {
+    sendResError(400, 'Empty email or password', res);
+  } else if (existingUser) {
+    sendResError(400, 'Email already registered', res);
+  } else {
+    users[newUserID] = { id: newUserID, email: newEmail, password: bcrypt.hashSync(newPassword, 10) };
+    req.session.user_id = newUserID;
+    res.redirect('/urls');
+  }
+});
+
+// Clears session cookie, then redirects to /urls
+app.post('/logout', (req, res) => {
+  req.session = null;
+  res.redirect('/urls');
+});
+
+// Start listening for requests at port 8080
 app.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
 });
-
-// Generates a random 6 character alphanumeric string
-const generateRandomString = function() {
-
-  const chars = [
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-    'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 0
-  ];
-
-  let randomString = '';
-
-  for (let i = 0; i < 6; i++) {
-    const lowerUpperOrNum = Math.random();
-
-    if (lowerUpperOrNum < 0.3) {
-      // Get a lowercase letter
-      randomString += chars[Math.floor(Math.random() * 26)];
-    } else if (lowerUpperOrNum >= 0.3 && lowerUpperOrNum < 0.6) {
-      // Get an uppercase letter
-      randomString += chars[Math.floor(Math.random() * 26 + 26)];
-    } else {
-      // Get a number
-      randomString += chars[Math.floor(Math.random() * 10 + 52)];
-    }
-  }
-
-  return randomString;
-};
